@@ -1,0 +1,20 @@
+# Proje içi geçici dosyalar, planlar ve ders raporu
+/.temp/
+/plan.md
+/plans/
+/Z-AGV_Proje_Raporu.docx
+
+# Ofis kilit dosyaları (LibreOffice / Microsoft Word)
+.~lock.*#
+~$*.docx
+
+# Python sanal ortamı ve derlenmiş bayt kodlar
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# İşletim sistemi artıkları
+.DS_Store
+Thumbs.db

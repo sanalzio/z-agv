@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Z-AGV // Endüstri 4.0 SCADA Kontrol Portalı</title>
+  <meta name="theme-color" content="#262320">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Z-AGV SCADA">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css?v=3">
+  <script src="/static/app.js?v=3" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="4" y="6" width="24" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="10" cy="23" r="2.2" fill="currentColor"/>
+        <circle cx="22" cy="23" r="2.2" fill="currentColor"/>
+        <path d="M9 13h14M16 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="brand-title">Z-AGV <span class="tag">IND 4.0</span></div>
+        <div class="brand-sub">Otonom Yük Taşıma &amp; SCADA</div>
+      </div>
+    </div>
+
+    <div class="status-cluster">
+      <span id="mode-pill" class="mode-pill mode-disconnected">BAĞLI DEĞİL</span>
+      <div class="metrics-strip">
+        <div class="metric" title="WebSocket Durumu">
+          <span id="ws-led" class="led led-off"></span>
+          <span class="metric-label">WS</span>
+        </div>
+        <div class="metric" title="Robot Seri Hat Durumu">
+          <span id="link-led" class="led led-off"></span>
+          <span id="link-text" class="metric-label">AGV KAPALI</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">RTT</span>
+          <span id="rtt-val" class="metric-val">-- ms</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">TELEMETRİ</span>
+          <span id="hz-val" class="metric-val">-- Hz</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="port-cluster">
+      <div class="port-combo">
+        <input id="port-input" type="text" list="port-options" placeholder="/dev/rfcomm0" autocomplete="off" aria-label="Seri Port Yolu">
+        <datalist id="port-options"></datalist>
+        <button id="btn-refresh" type="button" class="btn btn-icon" title="Portları Yenile [Ctrl+Y]" aria-label="Portları Yenile">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/>
+          </svg>
+        </button>
+      </div>
+      <button id="btn-connect" type="button" class="btn btn-primary btn-with-kbd" title="Bağlan / Bağlantıyı Kes [Ctrl+K]">
+        <span id="btn-connect-label">Bağlan</span>
+        <kbd class="btn-kbd btn-kbd-light">&#8963;K</kbd>
+      </button>
+    </div>
+
+    <div class="safety-cluster">
+      <button id="btn-estop" type="button" class="btn btn-estop btn-with-kbd" title="Acil Durdurma [Ctrl+Shift+E]">
+        <span>E-STOP</span>
+        <kbd class="btn-kbd btn-kbd-light">&#8963;&#8679;E</kbd>
+      </button>
+      <button id="btn-reset" type="button" class="btn btn-reset btn-with-kbd" title="E-Stop Kilidini Aç [Ctrl+R]" disabled>
+        <span>RESET</span>
+        <kbd class="btn-kbd">&#8963;R</kbd>
+      </button>
+    </div>
+  </header>
+
+  <div id="alert-banner" class="alert-banner hidden" role="alert"></div>
+
+  <main class="scada-grid">
+    <section class="column">
+      <article class="card">
+        <div class="card-head">
+          <h2>Otonom Hat Görevi</h2>
+          <span class="badge">PD KONTROL // 100 Hz</span>
+        </div>
+        <div class="btn-row-3">
+          <button id="btn-line" type="button" class="btn btn-action" data-mode-btn="LINE" title="Çizgi İzle [L]">
+            <span class="cmd-code">L</span>
+            <span>Çizgi İzle</span>
+            <kbd class="btn-kbd">L</kbd>
+          </button>
+          <button id="btn-turn" type="button" class="btn btn-action" data-mode-btn="TURN180" title="180° Dön [Ctrl+U]">
+            <span class="cmd-code">U</span>
+            <span>180° Dön</span>
+            <kbd class="btn-kbd">&#8963;U</kbd>
+          </button>
+          <button id="btn-stop-auto" type="button" class="btn btn-neutral" data-cmd="S" title="Durdur [Space]">
+            <span class="cmd-code">S</span>
+            <span>Dur</span>
+            <kbd class="btn-kbd">&#9251;</kbd>
+          </button>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-head">
+            <label for="slider-vl">
+              Otonom Hat Hızı (<code>VL</code>)
+              <span class="kbd-group" title="Klavye: 1 azaltır (-5), 2 artırır (+5)"><kbd>1</kbd><kbd>2</kbd></span>
+            </label>
+            <span id="val-vl" class="mono-readout">150 PWM (%59)</span>
+          </div>
+          <input id="slider-vl" type="range" min="90" max="255" value="150">
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Manuel Operatör Sürüşü</h2>
+          <span class="badge">HOLD-TO-MOVE // 800 ms WDT</span>
+        </div>
+
+        <div class="dpad" role="group" aria-label="Manuel Yön Kontrolü">
+          <div class="dpad-empty"></div>
+          <button type="button" class="dpad-btn" data-hold="F" title="İleri [W / Yukarı Ok]">
+            <span class="dpad-arrow">&#9650;</span>
+            <span class="dpad-key">W &middot; F</span>
+          </button>
+          <div class="dpad-empty"></div>
+
+          <button type="button" class="dpad-btn" data-hold="A" title="Sola Dön [A / Sol Ok]">
+            <span class="dpad-arrow">&#9664;</span>
+            <span class="dpad-key">A &middot; SOL</span>
+          </button>
+          <button id="btn-stop-manual" type="button" class="dpad-btn dpad-stop" data-cmd="S" title="Durdur [Space]">
+            <span>DUR</span>
+            <span class="dpad-key">&#9251; &middot; S</span>
+          </button>
+          <button type="button" class="dpad-btn" data-hold="D" title="Sağa Dön [D / Sağ Ok]">
+            <span class="dpad-arrow">&#9654;</span>
+            <span class="dpad-key">D &middot; SAĞ</span>
+          </button>
+
+          <div class="dpad-empty"></div>
+          <button type="button" class="dpad-btn" data-hold="B" title="Geri [S / Aşağı Ok]">
+            <span class="dpad-arrow">&#9660;</span>
+            <span class="dpad-key">S &middot; B</span>
+          </button>
+          <div class="dpad-empty"></div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-head">
+            <label for="slider-vm">
+              Manuel Sürüş Hızı (<code>VM</code>)
+              <span class="kbd-group" title="Klavye: 3 azaltır (-5), 4 artırır (+5)"><kbd>3</kbd><kbd>4</kbd></span>
+            </label>
+            <span id="val-vm" class="mono-readout">160 PWM (%63)</span>
+          </div>
+          <input id="slider-vm" type="range" min="90" max="255" value="160">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-head">
+            <label for="slider-trim">
+              Motor Denge Trim (<code>T</code>)
+              <span class="kbd-group" title="Klavye: 5 azaltır (-1), 6 artırır (+1), 0 sıfırlar"><kbd>5</kbd><kbd>6</kbd><kbd>0</kbd></span>
+            </label>
+            <div class="trim-right">
+              <span id="val-trim" class="mono-readout">0</span>
+              <button id="btn-trim-zero" type="button" class="btn btn-mini btn-with-kbd" title="Trim Sıfırla [0]">
+                <span>Sıfırla</span>
+                <kbd class="btn-kbd">0</kbd>
+              </button>
+            </div>
+          </div>
+          <input id="slider-trim" type="range" min="-30" max="30" value="0">
+        </div>
+      </article>
+    </section>
+
+    <section class="column">
+      <article class="card">
+        <div class="card-head">
+          <h2>Canlı Optik Sensör &amp; Tahrik Telemetrisi</h2>
+          <span id="err-badge" class="badge">HATA: --</span>
+        </div>
+
+        <div class="track-gauge">
+          <div class="track-labels">
+            <span>SOL (-100)</span>
+            <span>MERKEZ (0)</span>
+            <span>SAĞ (+100)</span>
+          </div>
+          <div class="track-rail">
+            <div class="track-center-mark"></div>
+            <div id="err-needle" class="track-needle lost"></div>
+          </div>
+        </div>
+
+        <div id="sensor-array" class="sensor-array" aria-label="8 Kanallı IR Sensör Çubukları">
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="0"></div></div><span class="sensor-val" data-sv="0">0</span><span class="sensor-lbl">D1</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="1"></div></div><span class="sensor-val" data-sv="1">0</span><span class="sensor-lbl">D2</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="2"></div></div><span class="sensor-val" data-sv="2">0</span><span class="sensor-lbl">D3</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="3"></div></div><span class="sensor-val" data-sv="3">0</span><span class="sensor-lbl">D4</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="4"></div></div><span class="sensor-val" data-sv="4">0</span><span class="sensor-lbl">D5</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="5"></div></div><span class="sensor-val" data-sv="5">0</span><span class="sensor-lbl">D6</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="6"></div></div><span class="sensor-val" data-sv="6">0</span><span class="sensor-lbl">D7</span></div>
+          <div class="sensor-col"><div class="sensor-bar-wrap"><div class="sensor-bar" data-s="7"></div></div><span class="sensor-val" data-sv="7">0</span><span class="sensor-lbl">D8</span></div>
+        </div>
+
+        <div class="motor-meters">
+          <div class="motor-meter">
+            <div class="motor-meter-head">
+              <span>SOL TAHRİK (ENA)</span>
+              <span id="lpwm-val" class="mono-readout">0</span>
+            </div>
+            <div class="bi-meter">
+              <div class="bi-center"></div>
+              <div id="lpwm-bar" class="bi-fill"></div>
+            </div>
+          </div>
+          <div class="motor-meter">
+            <div class="motor-meter-head">
+              <span>SAĞ TAHRİK (ENB)</span>
+              <span id="rpwm-val" class="mono-readout">0</span>
+            </div>
+            <div class="bi-meter">
+              <div class="bi-center"></div>
+              <div id="rpwm-bar" class="bi-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cal-bar">
+          <div class="cal-actions">
+            <button id="btn-cw" type="button" class="btn btn-cal btn-with-kbd" title="Beyaz Kalibre Et [Ctrl+B]">
+              <span>Beyaz Kalibre (CW)</span>
+              <kbd class="btn-kbd">&#8963;B</kbd>
+            </button>
+            <button id="btn-cb" type="button" class="btn btn-cal btn-with-kbd" title="Siyah Kalibre Et [Ctrl+S]">
+              <span>Siyah Kalibre (CB)</span>
+              <kbd class="btn-kbd">&#8963;S</kbd>
+            </button>
+          </div>
+          <span id="cal-status" class="cal-status">EEPROM hazır</span>
+        </div>
+      </article>
+
+      <article class="card card-console">
+        <div class="card-head">
+          <h2>Canlı Bluetooth Seri Konsol</h2>
+          <div class="console-tools">
+            <label class="chk-label" title="Ping/TEL Filtresi [Ctrl+P]">
+              <input id="chk-filter-ping" type="checkbox" checked>
+              <span>Ping/TEL Gizle</span>
+              <kbd class="btn-kbd">&#8963;P</kbd>
+            </label>
+            <button id="btn-clear-log" type="button" class="btn btn-mini btn-with-kbd" title="Konsolu Temizle [Ctrl+Del]">
+              <span>Temizle</span>
+              <kbd class="btn-kbd">&#8963;Del</kbd>
+            </button>
+          </div>
+        </div>
+
+        <div id="console-log" class="console-log" aria-live="polite"></div>
+
+        <form id="console-form" class="console-form">
+          <input id="cmd-input" type="text" placeholder="Komut: KP:1.25, KD:0.85, VL:170..." autocomplete="off" aria-label="Seri Komut Girişi">
+          <button type="submit" class="btn btn-primary">Gönder</button>
+        </form>
+
+        <details id="cmd-guide" class="cmd-guide">
+          <summary>Komut Kılavuzu &mdash; Seri Protokol Referansı (tıklayarak doldur)</summary>
+          <div class="kbd-legend">Kısayol sembolleri: <kbd>&#8963;</kbd> Ctrl &middot; <kbd>&#8679;</kbd> Shift &middot; <kbd>&#9251;</kbd> Space (tam kısayollar için butonların üzerine gelin)</div>
+          <div class="cmd-guide-body">
+            <table class="cmd-table">
+              <thead>
+                <tr>
+                  <th>Komut</th>
+                  <th>Kullanım / Aralık</th>
+                  <th>Açıklama</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><button type="button" class="cmd-chip" data-fill="L">L</button></td><td><code>L</code></td><td>Otonom çizgi izleme modunu başlatır (E-Stop kilitliyken reddedilir).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="U">U</button></td><td><code>U</code></td><td>Sensör güdümlü 180° dönüş yapar, çizgiyi yakalayınca <code>LINE</code> moduna geçer (3000 ms timeout).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="S">S</button></td><td><code>S</code></td><td>Motorları durdurur ve <code>IDLE</code> moduna geçer (E-Stop kilidini açmaz).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="F">F</button> <button type="button" class="cmd-chip" data-fill="B">B</button> <button type="button" class="cmd-chip" data-fill="A">A</button> <button type="button" class="cmd-chip" data-fill="D">D</button></td><td><code>F / B / A / D</code></td><td>Manuel sürüş: İleri, Geri, Sola dön, Sağa dön (800 ms Watchdog).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="E">E</button></td><td><code>E</code></td><td>Yazılımsal Acil Durdurma: motorları anında keser ve hareketi kilitler.</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="R">R</button></td><td><code>R</code></td><td>E-Stop kilidini açar ve sistemi güvenli <code>IDLE</code> durumuna döndürür.</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="P">P</button></td><td><code>P</code></td><td>Heartbeat ping: Watchdog sayacını sıfırlar ve anlık <code>TEL:...</code> ister.</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="VL:160">VL:&lt;pwm&gt;</button></td><td><code>90..255</code></td><td>Otonom çizgi izleme temel hızını ayarlar (örn. <code>VL:160</code>).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="VM:180">VM:&lt;pwm&gt;</button></td><td><code>90..255</code></td><td>Manuel sürüş hızını ayarlar (örn. <code>VM:180</code>).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="T:0">T:&lt;trim&gt;</button></td><td><code>-30..30</code></td><td>Sol/sağ motor denge düzeltmesi (örn. <code>T:-5</code>).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="KP:1.25">KP:&lt;val&gt;</button></td><td><code>0.0..50.0</code></td><td>PD Oransal kazancı RAM'de anlık günceller (varsayılan <code>1.20</code>).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="KD:0.85">KD:&lt;val&gt;</button></td><td><code>0.0..50.0</code></td><td>PD Türev kazancı RAM'de anlık günceller (varsayılan <code>0.85</code>).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="CW">CW</button></td><td><code>CW</code></td><td>Sensörleri beyaz zemin referansına göre kalibre edip <code>EEPROM</code>'a yazar (dururken).</td></tr>
+                <tr><td><button type="button" class="cmd-chip" data-fill="CB">CB</button></td><td><code>CB</code></td><td>Sensörleri siyah çizgi referansına göre kalibre edip <code>EEPROM</code>'a yazar (dururken).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

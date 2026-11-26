@@ -1,0 +1,39 @@
+{
+  "id": "/",
+  "name": "Z-AGV // Endüstri 4.0 SCADA Kontrol Portalı",
+  "short_name": "Z-AGV SCADA",
+  "description": "Z-AGV Endüstri 4.0 Otonom Yük Taşıma ve SCADA Kontrol Portalı",
+  "lang": "tr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1c1a18",
+  "theme_color": "#262320",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
